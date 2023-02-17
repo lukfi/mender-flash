@@ -24,14 +24,16 @@ using mender::common::error::NoError;
 using mender::common::expected::Expected;
 using ExpectedSize = Expected<size_t, Error>;
 using ExpectedString = Expected<std::string, Error>;
+using ExpectedBool = Expected<bool, Error>;
 
 namespace mender {
 namespace io {
 
 using File = int;
 using ExpectedFile = Expected<File, Error>;
+using Bytes = std::vector<uint8_t>;
 
-ExpectedFile Open(std::string &&p, bool read = true, bool write = false);
+ExpectedFile Open(const std::string &p, bool read = true, bool write = false); // todo: mode
 Error Close(File f);
 
 ExpectedSize GetSize(File f);
@@ -39,13 +41,16 @@ Error SeekSet(File f, uint64_t pos);
 ExpectedSize Tell(File f);
 File GetInputStream();
 
+ExpectedBool IsSpecialBlockDevice(File f);
+ExpectedSize WriteFile(const string &path, const Bytes& data);
+
 ///
 /// \brief MakeTempDir
 /// \param templateName: name of the new temp directory, the function will create a dir name by
 ///	appending 6 random characters to the given name
 /// \return temp directory name or error
 ///
-ExpectedString MakeTempDir(std::string &&templateName);
+ExpectedString MakeTempDir(const string &templateName);
 
 class FlushingWriter : public common::io::Writer {
 public:
