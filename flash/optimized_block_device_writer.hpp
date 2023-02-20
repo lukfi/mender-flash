@@ -22,7 +22,7 @@ private:
 	ssize_t mLimit;
 	mender::io::File mFd;
 
-	bool mBypassWriting {true}; // for test only, to be removed
+	bool mBypassWriting {false}; // for test only, to be removed
 };
 
 } // namespace mender

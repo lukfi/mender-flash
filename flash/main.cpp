@@ -18,7 +18,6 @@
 #include "optimized_block_device_writer.hpp"
 
 int main(int argc, char *argv[]) {
-
 	mender::io::File srcFile;
 	mender::io::File dstFile;
 
@@ -61,8 +60,7 @@ int main(int argc, char *argv[]) {
 		optWriter.Write(v);
 	}
 
-	if (srcFile != mender::io::GetInputStream())
-	{
+	if (srcFile != mender::io::GetInputStream()) {
 		mender::io::Close(srcFile);
 	}
 	mender::io::Close(dstFile);

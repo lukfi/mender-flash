@@ -7,9 +7,14 @@ OptimizedBlockDeviceWriter::OptimizedBlockDeviceWriter(io::File f, size_t limit,
 	FlushingWriter(f),
 	mLimit(limit),
 	mFd(f) {
+	auto blockDevice = mender::io::IsSpecialBlockDevice(mFd);
+	if (blockDevice.has_value() && blockDevice.value()) {
+		mBypassWriting = true;
+	}
+
 	auto size = io::GetSize(mFd);
 	mLimit = size.value();
-	std::cout << "Total size of device: " << mLimit / 1024 / 1024 << " MB\n";
+	std::cout << "Total size of device: " << mLimit << " bytes\n";
 	if (optimize) {
 		mReader = std::make_shared<mender::io::FileReader>(mFd);
 	}
@@ -32,16 +37,18 @@ ExpectedSize OptimizedBlockDeviceWriter::Write(const vector<uint8_t> &dst) {
 	if (!pos) {
 		return pos.error();
 	}
-	printf("> Compare: size: %zd offset: %zd\n", dst.size(), io::Tell(mFd).value());
+	// printf("> Compare: size: %zd offset: %zd\n", dst.size(), io::Tell(mFd).value());
+
+	mChunkSize = dst.size();
+
 	if (mLimit && pos + mChunkSize > mLimit) {
 		return Error(std::error_condition(std::errc::io_error), "Error writing beyound the limit");
 	}
-	mChunkSize = dst.size();
-	mBuff.resize(mChunkSize);
 
 	bool skipWriting = false;
 
 	if (mReader) {
+		mBuff.resize(mChunkSize);
 		auto r = mReader->Read(mBuff);
 		printf("read ok=%d\n", r.has_value());
 		mBuff.resize(r.value());
