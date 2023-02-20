@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 	mender::OptimizedBlockDeviceWriter optWriter(dstFile, 0, true);
 
 	std::vector<uint8_t> v;
-	v.resize(1024);
+	v.resize(1024*1024);
 	while (reader->Read(v)) {
 		optWriter.Write(v);
 	}
@@ -64,5 +64,7 @@ int main(int argc, char *argv[]) {
 		mender::io::Close(srcFile);
 	}
 	mender::io::Close(dstFile);
+
+	optWriter.PrintStatistics();
 	return 0;
 }

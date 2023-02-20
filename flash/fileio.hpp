@@ -42,6 +42,13 @@ ExpectedSize Tell(File f);
 File GetInputStream();
 
 ExpectedBool IsSpecialBlockDevice(File f);
+
+///
+/// \brief WriteFile: opens a file (creates if doesn't exist), writes the data and closes the file
+/// \param path: path to the file
+/// \param data: data that's will be written to the file
+/// \return bytes written on an error
+///
 ExpectedSize WriteFile(const string &path, const Bytes& data);
 
 ///
@@ -52,15 +59,22 @@ ExpectedSize WriteFile(const string &path, const Bytes& data);
 ///
 ExpectedString MakeTempDir(const string &templateName);
 
-class FlushingWriter : public common::io::Writer {
+class FileWriter : public common::io::Writer {
 public:
-	FlushingWriter(File f);
+	FileWriter(File f);
+	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
+protected:
+	File mFd;
+};
+
+class FlushingWriter : public FileWriter {
+public:
+	FlushingWriter(File f, uint32_t flushInterval = 1);
 	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
 
 protected:
-	uint32_t mFlushIntervalBytes {1}; // always
+	uint32_t mFlushIntervalBytes;
 	uint32_t mUnflushedBytesWritten {0};
-	int mFd;
 };
 
 class FileReader : public common::io::Reader {
@@ -71,6 +85,7 @@ public:
 protected:
 	File mFd;
 };
+
 
 } // namespace io
 } // namespace mender

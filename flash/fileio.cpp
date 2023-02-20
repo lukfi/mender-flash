@@ -36,16 +36,15 @@ ExpectedSize mender::io::FileReader::Read(vector<uint8_t> &dst) {
 	return bytesRead;
 }
 
-mender::io::FlushingWriter::FlushingWriter(mender::io::File f) :
-	mFd(f) {
+mender::io::FlushingWriter::FlushingWriter(mender::io::File f, uint32_t flushInterval) :
+	FileWriter(f),
+	mFlushIntervalBytes(flushInterval) {
 }
 
 ExpectedSize mender::io::FlushingWriter::Write(const vector<uint8_t> &dst) {
-	ssize_t bytesWrote = write(mFd, dst.data(), dst.size());
-	if (bytesWrote <= 0) {
-		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
-	} else {
-		mUnflushedBytesWritten += bytesWrote;
+	auto res = FileWriter::Write(dst);
+	if (res) {
+		mUnflushedBytesWritten += res.value();
 		if (mUnflushedBytesWritten >= mFlushIntervalBytes) {
 			if (0 != fsync(mFd)) {
 				return Error(
@@ -55,7 +54,7 @@ ExpectedSize mender::io::FlushingWriter::Write(const vector<uint8_t> &dst) {
 			}
 		}
 	}
-	return bytesWrote;
+	return res;
 }
 
 mender::io::ExpectedFile mender::io::Open(const string &p, bool read, bool write) {
@@ -155,4 +154,16 @@ ExpectedBool mender::io::IsSpecialBlockDevice(File f) {
 		return true;
 	}
 	return false;
+}
+
+mender::io::FileWriter::FileWriter(File f) :
+	mFd(f) {
+}
+
+ExpectedSize mender::io::FileWriter::Write(const vector<uint8_t> &dst) {
+	ssize_t bytesWrote = write(mFd, dst.data(), dst.size());
+	if (bytesWrote <= 0) {
+		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
+	}
+	return bytesWrote;
 }

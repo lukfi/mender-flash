@@ -15,6 +15,7 @@ public:
 	OptimizedBlockDeviceWriter(io::File f, size_t limit = 0, bool optimize = false);
 	ExpectedSize Write(const vector<uint8_t> &dst) override;
 
+	void PrintStatistics() const;
 private:
 	std::shared_ptr<mender::io::FileReader> mReader;
 	std::vector<uint8_t> mBuff;
@@ -23,6 +24,12 @@ private:
 	mender::io::File mFd;
 
 	bool mBypassWriting {false}; // for test only, to be removed
+	struct Statistics
+	{
+		uint32_t mBlocksWritten {0};
+		uint32_t mBlocksOmitted {0};
+		size_t mBytesWritten {0};
+	} mStatistics;
 };
 
 } // namespace mender

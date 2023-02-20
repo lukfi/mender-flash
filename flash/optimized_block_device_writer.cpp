@@ -8,13 +8,14 @@ OptimizedBlockDeviceWriter::OptimizedBlockDeviceWriter(io::File f, size_t limit,
 	mLimit(limit),
 	mFd(f) {
 	auto blockDevice = mender::io::IsSpecialBlockDevice(mFd);
+	auto size = io::GetSize(mFd);
+
 	if (blockDevice.has_value() && blockDevice.value()) {
 		mBypassWriting = true;
+		mLimit = size.value();
 	}
 
-	auto size = io::GetSize(mFd);
-	mLimit = size.value();
-	std::cout << "Total size of device: " << mLimit << " bytes\n";
+	//	std::cout << "Total size of device: " << size << " bytes\n";
 	if (optimize) {
 		mReader = std::make_shared<mender::io::FileReader>(mFd);
 	}
@@ -50,11 +51,14 @@ ExpectedSize OptimizedBlockDeviceWriter::Write(const vector<uint8_t> &dst) {
 	if (mReader) {
 		mBuff.resize(mChunkSize);
 		auto r = mReader->Read(mBuff);
-		printf("read ok=%d\n", r.has_value());
-		mBuff.resize(r.value());
-		skipWriting = std::equal(dst.begin(), dst.end(), mBuff.data());
-		printf("Compare read: %ld/%ld bytes = %d\n", r.value(), dst.size(), skipWriting);
-
+		if (r) {
+			mBuff.resize(r.value());
+			skipWriting = std::equal(dst.begin(), dst.end(), mBuff.data());
+			if (skipWriting) {
+				++mStatistics.mBlocksOmitted;
+			}
+			printf("Compare read: %ld/%ld bytes = %d\n", r.value(), dst.size(), skipWriting);
+		}
 #ifdef DEBUG
 		if (!skipWriting) {
 			printBuffer(reinterpret_cast<const char *>(dst.data()), dst.size());
@@ -64,7 +68,20 @@ ExpectedSize OptimizedBlockDeviceWriter::Write(const vector<uint8_t> &dst) {
 #endif
 	}
 	if (!skipWriting && !mBypassWriting) {
-		return FlushingWriter::Write(dst);
+		auto res = FlushingWriter::Write(dst);
+		if (res) {
+			++mStatistics.mBlocksWritten;
+			mStatistics.mBytesWritten += res.value();
+		}
+		return res;
 	}
 	return 0;
+}
+
+void OptimizedBlockDeviceWriter::PrintStatistics() const {
+	std::cout << "================ STATISTICS ================" << std::endl;
+	std::cout << "Blocks written: " << mStatistics.mBlocksWritten << std::endl;
+	std::cout << "Blocks omitted: " << mStatistics.mBlocksOmitted << std::endl;
+	std::cout << "Bytes  written: " << mStatistics.mBytesWritten << std::endl;
+	std::cout << "============================================" << std::endl;
 }
