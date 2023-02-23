@@ -85,3 +85,100 @@ void OptimizedBlockDeviceWriter::PrintStatistics() const {
 	std::cout << "Bytes  written: " << mStatistics.mBytesWritten << std::endl;
 	std::cout << "============================================" << std::endl;
 }
+
+OptimizedWriter::OptimizedWriter(
+	io::FileReader &reader, io::FileReadWriterSeeker &writer, size_t blockSize) :
+	mBlockSize(blockSize),
+	mReader(reader),
+	mReadWriter(writer) {
+}
+
+Error OptimizedWriter::Copy() {
+	io::Bytes rv;
+	rv.resize(mBlockSize);
+	io::Bytes wv;
+	wv.resize(mBlockSize);
+
+	while (true) {
+		if (rv.size() != mBlockSize) {
+			rv.resize(mBlockSize);
+		}
+
+		auto pos = mReader.Tell();
+		if (!pos) {
+			return pos.error();
+		}
+		auto position = pos.value();
+
+		auto result = mReader.Read(rv);
+		if (!result) {
+			return result.error();
+		} else if (result.value() == 0) {
+			return NoError;
+		} else if (result.value() > rv.size()) {
+			return mender::common::error::MakeError(
+				mender::common::error::ProgrammingError,
+				"Read returned more bytes than requested. This is a bug in the Read function.");
+		}
+
+		auto readBytes = result.value();
+
+		if (mWriteLimit && (position + readBytes > mWriteLimit)) {
+			return Error(
+				std::error_condition(std::errc::io_error), "Error writing beyound the limit");
+		}
+
+		if (readBytes != rv.size()) {
+			// Because we only ever resize down, this should be very cheap. Resizing
+			// back up to capacity below is then also cheap.
+			rv.resize(readBytes);
+		}
+
+		if (wv.size() != readBytes) {
+			wv.resize(readBytes);
+		}
+
+		bool skipWriting = false;
+
+		if (NoError != mReadWriter.SeekSet(position)) {
+			return Error(
+				std::error_condition(std::errc::io_error),
+				"Failed to set seek on the destination file");
+		}
+
+		auto readResult = mReadWriter.Read(wv);
+		if (readResult) {
+			wv.resize(readResult.value());
+			skipWriting = std::equal(rv.begin(), rv.end(), wv.data());
+			if (skipWriting) {
+				++mStatistics.mBlocksOmitted;
+			}
+			printf(
+				"Compare read: %ld/%ld bytes = %d\n", readResult.value(), wv.size(), skipWriting);
+		}
+
+		if (!skipWriting && !mBypassWriting) {
+			mReadWriter.SeekSet(position);
+			auto res = mReadWriter.Write(rv);
+			if (res) {
+				++mStatistics.mBlocksWritten;
+				mStatistics.mBytesWritten += res.value();
+			} else if (result.value() == 0) {
+				return Error(
+					std::error_condition(std::errc::io_error), "Zero write when copying data");
+			} else if (result.value() != rv.size()) {
+				return Error(
+					std::error_condition(std::errc::io_error), "Short write when copying data");
+			}
+		}
+	}
+	return NoError;
+}
+
+void OptimizedWriter::PrintStatistics() const {
+	std::cout << "================ STATISTICS ================" << std::endl;
+	std::cout << "Blocks written: " << mStatistics.mBlocksWritten << std::endl;
+	std::cout << "Blocks omitted: " << mStatistics.mBlocksOmitted << std::endl;
+	std::cout << "Bytes  written: " << mStatistics.mBytesWritten << std::endl;
+	std::cout << "============================================" << std::endl;
+}

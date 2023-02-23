@@ -48,11 +48,13 @@ endif()
 # TODO: proper platform detection
 set(PLATFORM linux_x86)
 
-add_executable(mender-flash main.cpp lib.cpp)
+add_executable(mender-flash "flash/main.cpp" "flash/optimized_block_device_writer.cpp")
 install(TARGETS mender-flash
   DESTINATION bin
   COMPONENT mender-flash
 )
+target_include_directories(mender-flash PUBLIC .)
+target_link_libraries(mender-flash flashlib)
 
 if($CACHE{COVERAGE})
   add_custom_target(coverage_enabled COMMAND true)
@@ -101,6 +103,17 @@ add_custom_target(uninstall-bin
 
 include(GoogleTest)
 set(MENDER_TEST_FLAGS EXTRA_ARGS --gtest_output=xml:${CMAKE_SOURCE_DIR}/reports/)
+
+# Find all the source files in the flash and common directories
+file(GLOB FLASH_SOURCES "flash/fileio.cpp")
+file(GLOB COMMON_SOURCES "common/io.cpp" "common/io.cpp" "common/error.cpp" "common/io.cpp")
+
+# Combine the source files from both directories into one list
+set(LIB_SOURCES ${FLASH_SOURCES} ${COMMON_SOURCES})
+
+# Create a static library from the combined source files
+add_library(flashlib STATIC ${LIB_SOURCES})
+target_include_directories(flashlib PUBLIC .)
 
 add_executable(main_test EXCLUDE_FROM_ALL main_test.cpp lib.cpp)
 target_link_libraries(main_test PRIVATE GTest::gtest_main)

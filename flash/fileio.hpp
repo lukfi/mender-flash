@@ -33,14 +33,55 @@ using File = int;
 using ExpectedFile = Expected<File, Error>;
 using Bytes = std::vector<uint8_t>;
 
+///
+/// \brief Open
+/// \param p: path
+/// \param read: open for reading
+/// \param write: open for writing
+/// \return
+///
 ExpectedFile Open(const std::string &p, bool read = true, bool write = false); // todo: mode
+
+///
+/// \brief Close
+/// \param f
+/// \return
+///
 Error Close(File f);
 
+///
+/// \brief GetSize
+/// \param f: file
+/// \return size of the file
+///
 ExpectedSize GetSize(File f);
+
+///
+/// \brief SeekSet
+/// \param f: file
+/// \param pos: posiiton to be set on the file
+/// \return
+///
 Error SeekSet(File f, uint64_t pos);
+
+///
+/// \brief Tell
+/// \param f: file
+/// \return current posiiton of the file seek
+///
 ExpectedSize Tell(File f);
+
+///
+/// \brief GetInputStream
+/// \return SDTIN
+///
 File GetInputStream();
 
+///
+/// \brief IsSpecialBlockDevice
+/// \param f: file
+/// \return true if the file descriptor is special block device
+///
 ExpectedBool IsSpecialBlockDevice(File f);
 
 ///
@@ -81,11 +122,31 @@ class FileReader : public common::io::Reader {
 public:
 	FileReader(File fd);
 	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
+	ExpectedSize Tell() const;
+protected:
+	File mFd;
+};
+
+class FileReadWriter : public common::io::ReadWriter
+{
+public:
+	FileReadWriter(File f);
+	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
+	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
 
 protected:
 	File mFd;
 };
 
+class FileReadWriterSeeker : public FileReadWriter
+{
+public:
+	FileReadWriterSeeker(File f);
+
+	Error SeekSet(uint64_t pos);
+	ExpectedSize Tell() const;
+protected:
+};
 
 } // namespace io
 } // namespace mender
