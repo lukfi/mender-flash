@@ -16,42 +16,39 @@
 
 #include <sstream>
 
-#include <unistd.h>
-#include <linux/fs.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-
-
 mender::io::FileReader::FileReader(mender::io::File f) :
 	mFd(f) {
 }
 
 ExpectedSize mender::io::FileReader::Read(vector<uint8_t> &dst) {
-	ssize_t bytesRead = read(mFd, dst.data(), dst.size());
-	if (bytesRead <= 0) {
-		return Error(std::error_condition(std::errc::io_error), "Error while reading data");
-	}
-	return bytesRead;
+	return mender::io::Read(mFd, dst);
 }
 
 ExpectedSize mender::io::FileReader::Tell() const {
 	return mender::io::Tell(mFd);
 }
 
-mender::io::FlushingWriter::FlushingWriter(mender::io::File f, uint32_t flushInterval) :
+mender::io::LimitedFlushingWriter::LimitedFlushingWriter(mender::io::File f, size_t limit, uint32_t flushInterval) :
 	FileWriter(f),
+	mWritingLimit(limit),
 	mFlushIntervalBytes(flushInterval) {
 }
 
-ExpectedSize mender::io::FlushingWriter::Write(const vector<uint8_t> &dst) {
+ExpectedSize mender::io::LimitedFlushingWriter::Write(const vector<uint8_t> &dst) {
+	auto pos = mender::io::Tell(mFd);
+	if (!pos) {
+		return pos.error();
+	}
+	if (pos.value() + dst.size() > mWritingLimit) {
+		return Error(std::error_condition(std::errc::io_error), "Error writing beyound the limit");
+	}
 	auto res = FileWriter::Write(dst);
 	if (res) {
 		mUnflushedBytesWritten += res.value();
 		if (mUnflushedBytesWritten >= mFlushIntervalBytes) {
-			if (0 != fsync(mFd)) {
-				return Error(
-					std::error_condition(std::errc::io_error), "Error while flushing data");
+			auto flushRes = mender::io::Flush(mFd);
+			if (NoError != flushRes) {
+				return Error(std::error_condition(std::errc::io_error), flushRes.message);
 			} else {
 				mUnflushedBytesWritten = 0;
 			}
@@ -60,115 +57,12 @@ ExpectedSize mender::io::FlushingWriter::Write(const vector<uint8_t> &dst) {
 	return res;
 }
 
-mender::io::ExpectedFile mender::io::Open(const string &p, bool read, bool write) {
-	if (!read && !write) {
-		return Error(std::error_condition(std::errc::io_error), "Wrong access flags provided");
-	}
-	int flags = read && write ? O_RDWR | O_CREAT : write ? O_WRONLY | O_CREAT : O_RDONLY;
-	int permissions = 0644;
-	mender::io::File fd = open(p.c_str(), flags, permissions);
-
-	if (fd < 0) {
-		std::stringstream ss;
-		ss << "Error opening file: " << errno;
-		return Error(std::error_condition(std::errc::io_error), ss.str());
-	}
-	return fd;
-}
-
-ExpectedSize mender::io::GetSize(mender::io::File f) {
-	struct stat statbuf;
-	if (-1 == fstat(f, &statbuf)) {
-		return Error(std::error_condition(std::errc::io_error), "Failed to get fstat");
-	}
-
-	size_t size;
-	if (S_ISBLK(statbuf.st_mode)) {
-		int r = ioctl(f, BLKGETSIZE64, &size);
-		if (r < 0) {
-			std::stringstream ss;
-			ss << "Error getting file size: " << errno;
-			return Error(std::error_condition(std::errc::io_error), ss.str());
-		}
-	} else {
-		size = statbuf.st_size;
-	}
-	return size;
-}
-
-Error mender::io::SeekSet(mender::io::File f, uint64_t pos) {
-	if (pos != static_cast<uint64_t>(lseek64(f, pos, SEEK_SET))) {
-		return Error(std::error_condition(std::errc::io_error), "Can't set seek on a file");
-	}
-	return NoError;
-}
-
-ExpectedSize mender::io::Tell(mender::io::File f) {
-	ssize_t pos = lseek64(f, 0, SEEK_CUR);
-	if (pos < 0) {
-		std::stringstream ss;
-		ss << "Error getting file position: " << errno;
-		return Error(std::error_condition(std::errc::io_error), ss.str());
-	}
-	return pos;
-}
-
-mender::io::File mender::io::GetInputStream() {
-	return STDIN_FILENO;
-}
-
-ExpectedString mender::io::MakeTempDir(const string &templateName) {
-	std::string name = templateName + "XXXXXX";
-	char *dir_name = mkdtemp(const_cast<char *>(name.c_str()));
-	if (dir_name == nullptr) {
-		return Error(std::error_condition(std::errc::io_error), "Creating temp dir");
-	}
-	return name;
-}
-
-Error mender::io::Close(File f) {
-	int ret = close(f);
-	if (ret < 0) {
-		return Error(std::error_condition(std::errc::io_error), "Failed to close file");
-	}
-	return NoError;
-}
-
-ExpectedSize mender::io::WriteFile(const string &path, const Bytes &data) {
-	auto f = mender::io::Open(std::move(path), false, true);
-	if (f) {
-		auto fd = f.value();
-		ssize_t bytesWrote = write(fd, data.data(), data.size());
-		Close(fd);
-		if (bytesWrote <= 0) {
-			return Error(std::error_condition(std::errc::io_error), "Error while writing data");
-		} else {
-			return bytesWrote;
-		}
-	}
-	return f.error();
-}
-
-ExpectedBool mender::io::IsSpecialBlockDevice(File f) {
-	struct stat statbuf;
-	if (-1 == fstat(f, &statbuf)) {
-		return Error(std::error_condition(std::errc::io_error), "Failed to get fstat");
-	} else if (S_ISBLK(statbuf.st_mode)) {
-		return true;
-	}
-	return false;
-}
-
 mender::io::FileWriter::FileWriter(File f) :
 	mFd(f) {
 }
 
 ExpectedSize mender::io::FileWriter::Write(const vector<uint8_t> &dst) {
-	ssize_t bytesWrote = write(mFd, dst.data(), dst.size());
-	if (bytesWrote <= 0) {
-		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
-	}
-	return bytesWrote;
+	return mender::io::Write(mFd, dst);
 }
 
 mender::io::FileReadWriter::FileReadWriter(File f) :
@@ -176,23 +70,21 @@ mender::io::FileReadWriter::FileReadWriter(File f) :
 }
 
 ExpectedSize mender::io::FileReadWriter::Read(vector<uint8_t> &dst) {
-	ssize_t bytesRead = read(mFd, dst.data(), dst.size());
-	if (bytesRead <= 0) {
-		return Error(std::error_condition(std::errc::io_error), "Error while reading data");
-	}
-	return bytesRead;
+	return mender::io::Read(mFd, dst);
 }
 
 ExpectedSize mender::io::FileReadWriter::Write(const vector<uint8_t> &dst) {
-	ssize_t bytesWrote = write(mFd, dst.data(), dst.size());
-	if (bytesWrote <= 0) {
-		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
-	}
-	return bytesWrote;
+	return mender::io::Write(mFd, dst);
 }
 
-mender::io::FileReadWriterSeeker::FileReadWriterSeeker(File f) :
-	FileReadWriter(f) {
+mender::io::FileReadWriterSeeker::FileReadWriterSeeker(FileWriter& writer) :
+	FileReadWriter(writer.GetFile()),
+	mWriter(writer) {
+}
+
+ExpectedSize mender::io::FileReadWriterSeeker::Write(const vector<uint8_t> &dst)
+{
+	return mWriter.Write(dst);
 }
 
 Error mender::io::FileReadWriterSeeker::SeekSet(uint64_t pos) {

@@ -14,9 +14,62 @@
 
 #include <iostream>
 
-using namespace std;
+#include "libflash/fileio.hpp"
+#include "libflash/optimized_writer.hpp"
 
-int main() {
-	cout << "Mender-flash is live!" << endl;
+int main(int argc, char *argv[]) {
+	mender::io::File srcFile;
+	mender::io::File dstFile;
+
+	for (int i = 0; i < argc; ++i) {
+		printf("argv[%d]: %s\n", i, argv[i]);
+	}
+	if (argc < 2 || argc > 3) {
+		std::cerr << "Wrong input arguments" << std::endl;
+		std::cerr << "usage: mender-flash [srcPath] dstPath" << std::endl;
+		return 1;
+	}
+	std::shared_ptr<mender::io::FileReader> reader;
+	char *dstPath;
+	if (argc == 2) {
+		srcFile = mender::io::GetInputStream();
+		reader = std::make_shared<mender::io::FileReader>(srcFile);
+		dstPath = argv[1];
+	} else {
+		auto src = mender::io::Open(argv[1]);
+		if (!src) {
+			std::cerr << "Failed to open src: " << argv[1] << " (" << src.error().message << ")";
+			return 1;
+		}
+		srcFile = src.value();
+		reader = std::make_shared<mender::io::FileReader>(srcFile);
+		dstPath = argv[2];
+	}
+
+	auto dst = mender::io::Open(dstPath, true, true);
+	if (!dst) {
+		std::cerr << "Failed to open dst: " << dstPath << " (" << dst.error().message << ")";
+		return 1;
+	}
+	dstFile = dst.value();
+
+	mender::io::FileWriter writer(dstFile);
+	mender::io::FileReadWriterSeeker readwriter(writer);
+	mender::OptimizedWriter optWriter(*reader, readwriter);
+	optWriter.Copy();
+
+	auto statistics = optWriter.GetStatistics();
+
+	std::cout << "================ STATISTICS ================" << std::endl;
+	std::cout << "Blocks written: " << statistics.mBlocksWritten << std::endl;
+	std::cout << "Blocks omitted: " << statistics.mBlocksOmitted << std::endl;
+	std::cout << "Bytes  written: " << statistics.mBytesWritten << std::endl;
+	std::cout << "============================================" << std::endl;
+
+	if (srcFile != mender::io::GetInputStream()) {
+		mender::io::Close(srcFile);
+	}
+	mender::io::Close(dstFile);
+
 	return 0;
 }

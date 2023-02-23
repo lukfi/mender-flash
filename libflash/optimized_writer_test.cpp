@@ -16,20 +16,22 @@
 #include <gmock/gmock.h>
 #include <filesystem>
 #include "fileio.hpp"
-#include "optimized_block_device_writer.hpp"
+#include "optimized_writer.hpp"
 
-class OptimizedBlockWriterTests : public testing::Test {
+class OptimizedWriterTest : public testing::Test {
 protected:
 	void SetUp() override {
 	}
 
 	void TearDown() override {
-		std::filesystem::remove_all(mTempDir);
+		if (!mTempDir.empty()) {
+			std::filesystem::remove_all(mTempDir);
+		}
 	}
 	std::string mTempDir;
 };
 
-TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite) {
+TEST_F(OptimizedWriterTest, TestFlushingLimitWriterWrite) {
 	// prepare a temp dir
 	auto dir = mender::io::MakeTempDir("mender-block-device-");
 	ASSERT_TRUE(dir) << dir.error().message;
@@ -44,9 +46,8 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite) {
 	ASSERT_TRUE(f) << f.error().message;
 	mender::io::File fd = f.value();
 
-
 	// set a limit to 10bytes
-	mender::OptimizedBlockDeviceWriter writer(fd, 10);
+	mender::io::LimitedFlushingWriter writer(fd, 10);
 
 	mender::io::Bytes payloadBuf {'f', 'o', 'o', 'b', 'a', 'r'};
 	auto expectedBytesWritten = payloadBuf.size();
@@ -59,7 +60,7 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite) {
 	ASSERT_EQ(err, NoError);
 }
 
-TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize) {
+TEST_F(OptimizedWriterTest, TestFlushingLimitWriterWriteNegative) {
 	// prepare a temp dir
 	auto dir = mender::io::MakeTempDir("mender-block-device-");
 	ASSERT_TRUE(dir) << dir.error().message;
@@ -71,11 +72,10 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize) {
 	mender::io::File fd = f.value();
 
 	// set a limit to 10bytes
-	mender::OptimizedBlockDeviceWriter writer(fd, 10);
+	mender::io::LimitedFlushingWriter writer(fd, 10);
 
 	// create a 12 byte buffer
 	mender::io::Bytes payloadBuf {'f', 'o', 'o', 'b', 'a', 'r', 'f', 'o', 'o', 'b', 'a', 'r'};
-	// auto payloadSize = payloadBuf.size();
 
 	auto res = writer.Write(payloadBuf);
 	ASSERT_FALSE(res) << "Data written beyound the device limit";
@@ -84,7 +84,62 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize) {
 	ASSERT_EQ(err, NoError);
 }
 
-TEST_F(OptimizedBlockWriterTests, TestBlockFrameWriter) {
+TEST_F(OptimizedWriterTest, TestOptimizedWriter) {
+	// prepare a temp dir
+	auto dir = mender::io::MakeTempDir("mender-block-device-");
+	ASSERT_TRUE(dir) << dir.error().message;
+	mTempDir = dir.value();
+	auto path = mTempDir + "/foo";
+
+	std::stringstream ss;
+	ss << "dd if=/dev/urandom of=" << path << " bs=1M count=10 status=none";
+	system(ss.str().c_str());
+
+	// create a reader
+	auto f = mender::io::Open(path, true, false);
+	ASSERT_TRUE(f) << f.error().message;
+	mender::io::File fd = f.value();
+	mender::io::FileReader reader(fd);
+
+	// create writer
+	auto path2 = path + ".copy";
+	auto f2 = mender::io::Open(path2, true, true);
+	ASSERT_TRUE(f2) << f.error().message;
+	mender::io::File fd2 = f2.value();
+	mender::io::FileWriter writer(fd2);
+
+	// create read-writer
+	mender::io::FileReadWriterSeeker readWriter(writer);
+
+	// creawte optimized-writer
+	mender::OptimizedWriter optWriter(reader, readWriter);
+	auto copyRes = optWriter.Copy();
+	ASSERT_EQ(copyRes, NoError) << copyRes.message;
+
+	auto stats = optWriter.GetStatistics();
+	ASSERT_EQ(stats.mBlocksWritten, 10);
+	ASSERT_EQ(stats.mBlocksOmitted, 0);
+	ASSERT_EQ(stats.mBytesWritten, 10*1024*1024);
+
+	mender::io::SeekSet(fd, 0);
+	mender::io::SeekSet(fd2, 0);
+
+	// creawte optimized-writer
+	auto copyRes2 = optWriter.Copy();
+	ASSERT_EQ(copyRes2, NoError) << copyRes.message;
+
+	auto stats2 = optWriter.GetStatistics();
+	ASSERT_EQ(stats2.mBlocksWritten, 0);
+	ASSERT_EQ(stats2.mBlocksOmitted, 10);
+	ASSERT_EQ(stats2.mBytesWritten, 0);
+
+	auto err = mender::io::Close(fd);
+	ASSERT_EQ(err, NoError);
+	auto err2 = mender::io::Close(fd2);
+	ASSERT_EQ(err, NoError);
+}
+
+TEST_F(OptimizedWriterTest, TestBlockFrameWriter) {
 	struct test {
 		int frameSize;
 		mender::io::Bytes input;

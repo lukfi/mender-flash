@@ -48,7 +48,7 @@ endif()
 # TODO: proper platform detection
 set(PLATFORM linux_x86)
 
-add_executable(mender-flash "flash/main.cpp" "flash/optimized_block_device_writer.cpp")
+add_executable(mender-flash "main.cpp")
 install(TARGETS mender-flash
   DESTINATION bin
   COMPONENT mender-flash
@@ -105,7 +105,7 @@ include(GoogleTest)
 set(MENDER_TEST_FLAGS EXTRA_ARGS --gtest_output=xml:${CMAKE_SOURCE_DIR}/reports/)
 
 # Find all the source files in the flash and common directories
-file(GLOB FLASH_SOURCES "flash/fileio.cpp")
+file(GLOB FLASH_SOURCES "libflash/fileio.cpp" "libflash/optimized_block_device_writer.cpp")
 file(GLOB COMMON_SOURCES "common/io.cpp" "common/io.cpp" "common/error.cpp" "common/io.cpp")
 
 # Combine the source files from both directories into one list
