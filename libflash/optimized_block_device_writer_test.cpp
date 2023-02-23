@@ -21,7 +21,6 @@
 class OptimizedBlockWriterTests : public testing::Test {
 protected:
 	void SetUp() override {
-
 	}
 
 	void TearDown() override {
@@ -30,8 +29,7 @@ protected:
 	std::string mTempDir;
 };
 
-TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite)
-{
+TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite) {
 	// prepare a temp dir
 	auto dir = mender::io::MakeTempDir("mender-block-device-");
 	ASSERT_TRUE(dir) << dir.error().message;
@@ -39,7 +37,7 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite)
 	auto path = mTempDir + "/foo";
 
 	// Write some junk to the file
-	auto s = mender::io::WriteFile(path, {'a','b','x','d','r','z','1','2','3','4'});
+	auto s = mender::io::WriteFile(path, {'a', 'b', 'x', 'd', 'r', 'z', '1', '2', '3', '4'});
 	ASSERT_TRUE(s) << s.error().message;
 
 	auto f = mender::io::Open(path, true, true);
@@ -50,7 +48,7 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite)
 	// set a limit to 10bytes
 	mender::OptimizedBlockDeviceWriter writer(fd, 10);
 
-	mender::io::Bytes payloadBuf{'f','o','o','b','a','r'};
+	mender::io::Bytes payloadBuf {'f', 'o', 'o', 'b', 'a', 'r'};
 	auto expectedBytesWritten = payloadBuf.size();
 
 	auto res = writer.Write(payloadBuf);
@@ -61,8 +59,7 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceWrite)
 	ASSERT_EQ(err, NoError);
 }
 
-TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize)
-{
+TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize) {
 	// prepare a temp dir
 	auto dir = mender::io::MakeTempDir("mender-block-device-");
 	ASSERT_TRUE(dir) << dir.error().message;
@@ -77,8 +74,8 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize)
 	mender::OptimizedBlockDeviceWriter writer(fd, 10);
 
 	// create a 12 byte buffer
-	mender::io::Bytes payloadBuf{'f','o','o','b','a','r','f','o','o','b','a','r'};
-	//auto payloadSize = payloadBuf.size();
+	mender::io::Bytes payloadBuf {'f', 'o', 'o', 'b', 'a', 'r', 'f', 'o', 'o', 'b', 'a', 'r'};
+	// auto payloadSize = payloadBuf.size();
 
 	auto res = writer.Write(payloadBuf);
 	ASSERT_FALSE(res) << "Data written beyound the device limit";
@@ -87,8 +84,24 @@ TEST_F(OptimizedBlockWriterTests, TestBlockDeviceSize)
 	ASSERT_EQ(err, NoError);
 }
 
-int main(int argc, char* argv[])
-{
+TEST_F(OptimizedBlockWriterTests, TestBlockFrameWriter) {
+	struct test {
+		int frameSize;
+		mender::io::Bytes input;
+		mender::io::Bytes expected;
+		int expectedBytesWritten;
+		int expectedBytesCached;
+	} tests[] = {
+		{2, {'f', 'o'}, {'f', 'o'}, 2, 0},
+		{6, {'f', 'o'}, {}, 3, 3},
+		{4, {'f', 'o', 'o', 'b', 'a', 'r'}, {'f', 'o', 'o', 'b'}, 6, 2}};
+
+	for (unsigned i = 0; i < sizeof(tests) / sizeof(tests[0]); ++i) {
+		// TODO
+	}
+}
+
+int main(int argc, char *argv[]) {
 	::testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }

@@ -52,6 +52,11 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	dstFile = dst.value();
+#if 1
+	mender::io::FileReadWriterSeeker writer(dstFile);
+	mender::OptimizedWriter optWriter(*reader, writer);
+	optWriter.Copy();
+#else
 	mender::OptimizedBlockDeviceWriter optWriter(dstFile, 0, true);
 
 	std::vector<uint8_t> v;
@@ -60,6 +65,7 @@ int main(int argc, char *argv[]) {
 		optWriter.Write(v);
 	}
 
+#endif
 	if (srcFile != mender::io::GetInputStream()) {
 		mender::io::Close(srcFile);
 	}

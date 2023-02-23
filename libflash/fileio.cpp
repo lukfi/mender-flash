@@ -32,8 +32,11 @@ ExpectedSize mender::io::FileReader::Read(vector<uint8_t> &dst) {
 	if (bytesRead <= 0) {
 		return Error(std::error_condition(std::errc::io_error), "Error while reading data");
 	}
-
 	return bytesRead;
+}
+
+ExpectedSize mender::io::FileReader::Tell() const {
+	return mender::io::Tell(mFd);
 }
 
 mender::io::FlushingWriter::FlushingWriter(mender::io::File f, uint32_t flushInterval) :
@@ -166,4 +169,36 @@ ExpectedSize mender::io::FileWriter::Write(const vector<uint8_t> &dst) {
 		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
 	}
 	return bytesWrote;
+}
+
+mender::io::FileReadWriter::FileReadWriter(File f) :
+	mFd(f) {
+}
+
+ExpectedSize mender::io::FileReadWriter::Read(vector<uint8_t> &dst) {
+	ssize_t bytesRead = read(mFd, dst.data(), dst.size());
+	if (bytesRead <= 0) {
+		return Error(std::error_condition(std::errc::io_error), "Error while reading data");
+	}
+	return bytesRead;
+}
+
+ExpectedSize mender::io::FileReadWriter::Write(const vector<uint8_t> &dst) {
+	ssize_t bytesWrote = write(mFd, dst.data(), dst.size());
+	if (bytesWrote <= 0) {
+		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
+	}
+	return bytesWrote;
+}
+
+mender::io::FileReadWriterSeeker::FileReadWriterSeeker(File f) :
+	FileReadWriter(f) {
+}
+
+Error mender::io::FileReadWriterSeeker::SeekSet(uint64_t pos) {
+	return mender::io::SeekSet(mFd, pos);
+}
+
+ExpectedSize mender::io::FileReadWriterSeeker::Tell() const {
+	return mender::io::Tell(mFd);
 }
