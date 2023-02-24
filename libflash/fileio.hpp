@@ -45,11 +45,20 @@ class FileReader : public common::io::Reader {
 public:
 	FileReader(File fd);
 	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
-	ExpectedSize Tell() const;
+	virtual ExpectedSize Tell() const;
 
 	File GetFile() const { return mFd; }
 protected:
 	File mFd;
+};
+
+class InputStreamReader : public FileReader {
+public:
+	InputStreamReader();
+	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
+	virtual ExpectedSize Tell() const override;
+protected:
+	size_t mReadBytes;
 };
 
 class FileReadWriter : public common::io::ReadWriter
@@ -71,7 +80,7 @@ public:
 
 	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
 	Error SeekSet(uint64_t pos);
-	ExpectedSize Tell() const;
+	virtual ExpectedSize Tell() const;
 protected:
 	FileWriter& mWriter;
 };

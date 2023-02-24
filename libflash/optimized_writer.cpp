@@ -7,7 +7,7 @@ OptimizedWriter::OptimizedWriter(io::FileReader &reader, io::FileReadWriterSeeke
 	mBlockSize(blockSize),
 	mReader(reader),
 	mReadWriter(writer),
-	mWriteLimit(limit)
+	mInputLimit(limit)
 {
 }
 
@@ -32,6 +32,10 @@ Error OptimizedWriter::Copy() {
 			return pos.error();
 		}
 		auto position = pos.value();
+
+		if (mInputLimit && ((position + mBlockSize) > mInputLimit)) {
+			return NoError;
+		}
 
 		auto result = mReader.Read(rv);
 		if (!result) {

@@ -28,6 +28,26 @@ ExpectedSize mender::io::FileReader::Tell() const {
 	return mender::io::Tell(mFd);
 }
 
+mender::io::InputStreamReader::InputStreamReader() :
+	FileReader(GetInputStream())
+{
+
+}
+
+ExpectedSize mender::io::InputStreamReader::Read(vector<uint8_t> &dst) {
+	auto res = FileReader::Read(dst);
+	if (!res) {
+		return res.error();
+	}
+	mReadBytes += res.value();
+	return res;
+}
+
+ExpectedSize mender::io::InputStreamReader::Tell() const
+{
+	return mReadBytes;
+}
+
 mender::io::LimitedFlushingWriter::LimitedFlushingWriter(mender::io::File f, size_t limit, uint32_t flushInterval) :
 	FileWriter(f),
 	mWritingLimit(limit),
@@ -39,7 +59,7 @@ ExpectedSize mender::io::LimitedFlushingWriter::Write(const vector<uint8_t> &dst
 	if (!pos) {
 		return pos.error();
 	}
-	if (pos.value() + dst.size() > mWritingLimit) {
+	if (mWritingLimit && pos.value() + dst.size() > mWritingLimit) {
 		return Error(std::error_condition(std::errc::io_error), "Error writing beyound the limit");
 	}
 	auto res = FileWriter::Write(dst);

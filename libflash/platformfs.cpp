@@ -54,9 +54,19 @@ ExpectedSize mender::io::GetSize(mender::io::File f) {
 
 ExpectedSize mender::io::Read(File f, Bytes &data)
 {
-	ssize_t bytesRead = read(f, data.data(), data.size());
-	if (bytesRead < 0) {
-		return Error(std::error_condition(std::errc::io_error), "Error while reading data");
+	uint8_t* dataPtr = data.data();
+	size_t dataLen = data.size();
+	size_t bytesRead = 0;
+	while (true)
+	{
+		ssize_t readRes = read(f, dataPtr + bytesRead, dataLen - bytesRead);
+		if (readRes < 0) {
+			return Error(std::error_condition(std::errc::io_error), "Error while reading data");
+		}
+		bytesRead += readRes;
+		if (readRes == 0 || bytesRead == dataLen) {
+			break;
+		}
 	}
 	return bytesRead;
 }

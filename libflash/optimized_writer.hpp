@@ -24,7 +24,7 @@ private:
 	size_t mBlockSize;
 	io::FileReader& mReader;
 	io::FileReadWriterSeeker& mReadWriter;
-	size_t mWriteLimit {0};
+	size_t mInputLimit {0};
 	bool mBypassWriting {false}; // for test only, to be removed
 
 	Statistics mStatistics;

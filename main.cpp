@@ -17,45 +17,84 @@
 #include "libflash/fileio.hpp"
 #include "libflash/optimized_writer.hpp"
 
+#include <getopt.h>
+
 int main(int argc, char *argv[]) {
+
+	int c;
+	int inputSize = 0;
+	std::string inputPath = "";
+	std::string outputPath = "";
+
+	while (1) {
+		static struct option long_options[] = {
+			{"help", no_argument, 0, 'h'},
+			{"input-size", required_argument, 0, 's'},
+			{"input", required_argument, 0, 'i'},
+			{"output", required_argument, 0, 'o'},
+			{0, 0, 0, 0}
+		};
+
+		int option_index = 0;
+		c = getopt_long(argc, argv, "hs:i:o:", long_options, &option_index);
+		if (c == -1) break;
+
+		switch (c) {
+			case 'h':
+				std::cout << "Usage: mender-flash [-h|--help] [-s|--input-size <INPUT_SIZE>] -i|--input <INPUT_PATH> -o|--output <OUTPUT_PATH>" << std::endl;
+				return 0;
+
+			case 's':
+				inputSize = atoi(optarg);
+				break;
+
+			case 'i':
+				inputPath = optarg;
+				break;
+
+			case 'o':
+				outputPath = optarg;
+				break;
+
+			case '?':
+				break;
+
+			default:
+				abort();
+		}
+	}
+
+	std::cout << "Input size: " << inputSize << std::endl;
+	std::cout << "Input path: " << inputPath << std::endl;
+	std::cout << "Output path: " << outputPath << std::endl;
+
 	mender::io::File srcFile;
 	mender::io::File dstFile;
 
-	for (int i = 0; i < argc; ++i) {
-		printf("argv[%d]: %s\n", i, argv[i]);
-	}
-	if (argc < 2 || argc > 3) {
-		std::cerr << "Wrong input arguments" << std::endl;
-		std::cerr << "usage: mender-flash [srcPath] dstPath" << std::endl;
-		return 1;
-	}
 	std::shared_ptr<mender::io::FileReader> reader;
-	char *dstPath;
-	if (argc == 2) {
+	if (inputPath == "stdin") {
 		srcFile = mender::io::GetInputStream();
-		reader = std::make_shared<mender::io::FileReader>(srcFile);
-		dstPath = argv[1];
+		reader = std::make_shared<mender::io::InputStreamReader>();
 	} else {
-		auto src = mender::io::Open(argv[1]);
+		auto src = mender::io::Open(inputPath);
 		if (!src) {
 			std::cerr << "Failed to open src: " << argv[1] << " (" << src.error().message << ")";
 			return 1;
 		}
 		srcFile = src.value();
 		reader = std::make_shared<mender::io::FileReader>(srcFile);
-		dstPath = argv[2];
 	}
 
-	auto dst = mender::io::Open(dstPath, true, true);
+	auto dst = mender::io::Open(outputPath, true, true);
 	if (!dst) {
-		std::cerr << "Failed to open dst: " << dstPath << " (" << dst.error().message << ")";
+		std::cerr << "Failed to open dst: " << outputPath << " (" << dst.error().message << ")";
 		return 1;
 	}
 	dstFile = dst.value();
 
 	mender::io::FileWriter writer(dstFile);
 	mender::io::FileReadWriterSeeker readwriter(writer);
-	mender::OptimizedWriter optWriter(*reader, readwriter);
+	mender::OptimizedWriter optWriter(*reader, readwriter, 1024*1024, inputSize);
 	optWriter.Copy();
 
 	auto statistics = optWriter.GetStatistics();
