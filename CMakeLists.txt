@@ -80,7 +80,7 @@ add_custom_target(coverage
 # the 'check' target below that does both.
 add_custom_target(check
   COMMAND ${CMAKE_CTEST_COMMAND}
-  DEPENDS main_test
+  DEPENDS mender-flash_test
 )
 
 # CMake doesn't generate the 'uninstall' target.
@@ -115,6 +115,7 @@ set(LIB_SOURCES ${FLASH_SOURCES} ${COMMON_SOURCES})
 add_library(flashlib STATIC ${LIB_SOURCES})
 target_include_directories(flashlib PUBLIC .)
 
-add_executable(main_test EXCLUDE_FROM_ALL main_test.cpp lib.cpp)
-target_link_libraries(main_test PRIVATE GTest::gtest_main)
-gtest_discover_tests(main_test ${MENDER_TEST_FLAGS})
+add_executable(mender-flash_test EXCLUDE_FROM_ALL "flash_test/optimized_writer_test.cpp")
+target_include_directories(mender-flash_test PUBLIC . libflash common)
+target_link_libraries(mender-flash_test PRIVATE GTest::gtest_main flashlib)
+gtest_discover_tests(mender-flash_test ${MENDER_TEST_FLAGS})
