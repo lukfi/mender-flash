@@ -29,9 +29,7 @@ ExpectedSize mender::io::FileReader::Tell() const {
 }
 
 mender::io::InputStreamReader::InputStreamReader() :
-	FileReader(GetInputStream())
-{
-
+	FileReader(GetInputStream()) {
 }
 
 ExpectedSize mender::io::InputStreamReader::Read(vector<uint8_t> &dst) {
@@ -43,12 +41,12 @@ ExpectedSize mender::io::InputStreamReader::Read(vector<uint8_t> &dst) {
 	return res;
 }
 
-ExpectedSize mender::io::InputStreamReader::Tell() const
-{
+ExpectedSize mender::io::InputStreamReader::Tell() const {
 	return mReadBytes;
 }
 
-mender::io::LimitedFlushingWriter::LimitedFlushingWriter(mender::io::File f, size_t limit, uint32_t flushInterval) :
+mender::io::LimitedFlushingWriter::LimitedFlushingWriter(
+	mender::io::File f, size_t limit, uint32_t flushInterval) :
 	FileWriter(f),
 	mWritingLimit(limit),
 	mFlushIntervalBytes(flushInterval) {
@@ -97,13 +95,12 @@ ExpectedSize mender::io::FileReadWriter::Write(const vector<uint8_t> &dst) {
 	return mender::io::Write(mFd, dst);
 }
 
-mender::io::FileReadWriterSeeker::FileReadWriterSeeker(FileWriter& writer) :
+mender::io::FileReadWriterSeeker::FileReadWriterSeeker(FileWriter &writer) :
 	FileReadWriter(writer.GetFile()),
 	mWriter(writer) {
 }
 
-ExpectedSize mender::io::FileReadWriterSeeker::Write(const vector<uint8_t> &dst)
-{
+ExpectedSize mender::io::FileReadWriterSeeker::Write(const vector<uint8_t> &dst) {
 	return mWriter.Write(dst);
 }
 

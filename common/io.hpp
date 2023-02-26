@@ -94,19 +94,21 @@ private:
 	std::stringstream s_;
 
 public:
-	StringReader(string &str) :
-		s_ {str},
-		reader_ {s_} {
-	}
+	StringReader(string &str);
 	StringReader(string &&str) :
-		s_ {str},
-		reader_ {s_} {
+		reader_ {s_},
+		s_ {str} {
 	}
 
 	ExpectedSize Read(vector<uint8_t> &dst) override {
 		return reader_.Read(dst);
 	}
 };
+
+inline StringReader::StringReader(string &str) :
+	reader_ {s_},
+	s_ {str} {
+}
 
 } // namespace io
 } // namespace common

@@ -52,13 +52,11 @@ ExpectedSize mender::io::GetSize(mender::io::File f) {
 	return size;
 }
 
-ExpectedSize mender::io::Read(File f, Bytes &data)
-{
-	uint8_t* dataPtr = data.data();
+ExpectedSize mender::io::Read(File f, Bytes &data) {
+	uint8_t *dataPtr = data.data();
 	size_t dataLen = data.size();
 	size_t bytesRead = 0;
-	while (true)
-	{
+	while (true) {
 		ssize_t readRes = read(f, dataPtr + bytesRead, dataLen - bytesRead);
 		if (readRes < 0) {
 			return Error(std::error_condition(std::errc::io_error), "Error while reading data");
@@ -71,8 +69,7 @@ ExpectedSize mender::io::Read(File f, Bytes &data)
 	return bytesRead;
 }
 
-ExpectedSize mender::io::Write(File f, const Bytes &data)
-{
+ExpectedSize mender::io::Write(File f, const Bytes &data) {
 	ssize_t bytesWrote = write(f, data.data(), data.size());
 	if (bytesWrote <= 0) {
 		return Error(std::error_condition(std::errc::io_error), "Error while writing data");
@@ -80,8 +77,7 @@ ExpectedSize mender::io::Write(File f, const Bytes &data)
 	return bytesWrote;
 }
 
-Error mender::io::Flush(File f)
-{
+Error mender::io::Flush(File f) {
 	if (0 != fsync(f)) {
 		return Error(std::error_condition(std::errc::io_error), "Error while flushing data");
 	}

@@ -4,26 +4,31 @@
 
 namespace mender {
 
-class OptimizedWriter
-{
+class OptimizedWriter {
 public:
-	OptimizedWriter(io::FileReader& reader, io::FileReadWriterSeeker& writer, size_t blockSize = 1024*1024, size_t limit = 0);
+	OptimizedWriter(
+		io::FileReader &reader,
+		io::FileReadWriterSeeker &writer,
+		size_t blockSize = 1024 * 1024,
+		size_t limit = 0);
 	common::error::Error Copy();
 
 	void PrintStatistics() const;
 
-	struct Statistics
-	{
+	struct Statistics {
 		uint32_t mBlocksWritten {0};
 		uint32_t mBlocksOmitted {0};
 		size_t mBytesWritten {0};
 	};
 
-	const Statistics& GetStatistics() const { return mStatistics; }
+	const Statistics &GetStatistics() const {
+		return mStatistics;
+	}
+
 private:
 	size_t mBlockSize;
-	io::FileReader& mReader;
-	io::FileReadWriterSeeker& mReadWriter;
+	io::FileReader &mReader;
+	io::FileReadWriterSeeker &mReadWriter;
 	size_t mInputLimit {0};
 	bool mBypassWriting {false}; // for test only, to be removed
 

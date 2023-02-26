@@ -3,16 +3,15 @@
 
 using namespace mender;
 
-OptimizedWriter::OptimizedWriter(io::FileReader &reader, io::FileReadWriterSeeker &writer, size_t blockSize, size_t limit) :
+OptimizedWriter::OptimizedWriter(
+	io::FileReader &reader, io::FileReadWriterSeeker &writer, size_t blockSize, size_t limit) :
 	mBlockSize(blockSize),
 	mReader(reader),
 	mReadWriter(writer),
-	mInputLimit(limit)
-{
+	mInputLimit(limit) {
 }
 
 Error OptimizedWriter::Copy() {
-
 	mStatistics.mBlocksWritten = 0;
 	mStatistics.mBlocksOmitted = 0;
 	mStatistics.mBytesWritten = 0;

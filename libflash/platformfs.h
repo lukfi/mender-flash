@@ -50,7 +50,7 @@ ExpectedSize GetSize(File f);
 /// \param data: vector to store read data
 /// \return number of bytes read or error on failure
 ///
-ExpectedSize Read(File f, Bytes& data);
+ExpectedSize Read(File f, Bytes &data);
 
 ///
 /// \brief Write
@@ -58,7 +58,7 @@ ExpectedSize Read(File f, Bytes& data);
 /// \param data
 /// \return number of bytes written or error on failure
 ///
-ExpectedSize Write(File f, const Bytes& data);
+ExpectedSize Write(File f, const Bytes &data);
 
 ///
 /// \brief Flush: flushes written data
@@ -101,7 +101,7 @@ ExpectedBool IsSpecialBlockDevice(File f);
 /// \param data: data that's will be written to the file
 /// \return bytes written on an error
 ///
-ExpectedSize WriteFile(const string &path, const Bytes& data);
+ExpectedSize WriteFile(const string &path, const Bytes &data);
 
 ///
 /// \brief MakeTempDir
@@ -111,7 +111,7 @@ ExpectedSize WriteFile(const string &path, const Bytes& data);
 ///
 ExpectedString MakeTempDir(const string &templateName);
 
-}
-}
+} // namespace io
+} // namespace mender
 
 #endif // PLATFORMFS_H

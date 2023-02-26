@@ -25,7 +25,10 @@ public:
 	FileWriter(File f);
 	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
 
-	File GetFile() const { return mFd; }
+	File GetFile() const {
+		return mFd;
+	}
+
 protected:
 	File mFd;
 };
@@ -47,7 +50,10 @@ public:
 	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
 	virtual ExpectedSize Tell() const;
 
-	File GetFile() const { return mFd; }
+	File GetFile() const {
+		return mFd;
+	}
+
 protected:
 	File mFd;
 };
@@ -57,32 +63,35 @@ public:
 	InputStreamReader();
 	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
 	virtual ExpectedSize Tell() const override;
+
 protected:
 	size_t mReadBytes;
 };
 
-class FileReadWriter : public common::io::ReadWriter
-{
+class FileReadWriter : public common::io::ReadWriter {
 public:
 	FileReadWriter(File f);
 	virtual ExpectedSize Read(vector<uint8_t> &dst) override;
 	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
 
-	File GetFile() const { return mFd; }
+	File GetFile() const {
+		return mFd;
+	}
+
 protected:
 	File mFd;
 };
 
-class FileReadWriterSeeker : public FileReadWriter
-{
+class FileReadWriterSeeker : public FileReadWriter {
 public:
-	FileReadWriterSeeker(FileWriter& writer);
+	FileReadWriterSeeker(FileWriter &writer);
 
 	virtual ExpectedSize Write(const vector<uint8_t> &dst) override;
 	Error SeekSet(uint64_t pos);
 	virtual ExpectedSize Tell() const;
+
 protected:
-	FileWriter& mWriter;
+	FileWriter &mWriter;
 };
 
 } // namespace io

@@ -30,6 +30,29 @@ protected:
 	std::string mTempDir;
 };
 
+class StringFileReader : public mender::io::FileReader {
+public:
+	StringFileReader(const std::string &str) :
+		mender::io::FileReader(-1),
+		mString(str) {
+	}
+	virtual ExpectedSize Tell() const override {
+		return mBytesRead;
+	}
+	virtual ExpectedSize Read(vector<uint8_t> &dst) override {
+		size_t bytes_to_copy = std::min(dst.size(), mString.size() - mBytesRead);
+		for (size_t i = 0; i < bytes_to_copy; i++) {
+			dst[i] = mString[i];
+		}
+		mBytesRead += bytes_to_copy;
+		return bytes_to_copy;
+	}
+
+private:
+	std::string mString;
+	size_t mBytesRead {0};
+};
+
 TEST_F(OptimizedWriterTest, TestFlushingLimitWriterWrite) {
 	// prepare a temp dir
 	auto dir = mender::io::MakeTempDir("mender-block-device-");
@@ -118,12 +141,12 @@ TEST_F(OptimizedWriterTest, TestOptimizedWriter) {
 	auto stats = optWriter.GetStatistics();
 	ASSERT_EQ(stats.mBlocksWritten, 10);
 	ASSERT_EQ(stats.mBlocksOmitted, 0);
-	ASSERT_EQ(stats.mBytesWritten, 10*1024*1024);
+	ASSERT_EQ(stats.mBytesWritten, 10 * 1024 * 1024);
 
 	mender::io::SeekSet(fd, 0);
 	mender::io::SeekSet(fd2, 0);
 
-	// creawte optimized-writer
+	// create optimized-writer
 	auto copyRes2 = optWriter.Copy();
 	ASSERT_EQ(copyRes2, NoError) << copyRes.message;
 
@@ -138,20 +161,45 @@ TEST_F(OptimizedWriterTest, TestOptimizedWriter) {
 	ASSERT_EQ(err, NoError);
 }
 
-TEST_F(OptimizedWriterTest, TestBlockFrameWriter) {
-	struct test {
-		int frameSize;
-		mender::io::Bytes input;
-		mender::io::Bytes expected;
+TEST_F(OptimizedWriterTest, TestOptimizedWriterLimit) {
+	// prepare a temp dir
+	auto dir = mender::io::MakeTempDir("mender-block-device-");
+	ASSERT_TRUE(dir) << dir.error().message;
+	mTempDir = dir.value();
+
+	struct {
+		std::string input;
+		int inputSize;
+		int blockSize;
+		int expectedBlockWritten;
 		int expectedBytesWritten;
-		int expectedBytesCached;
-	} tests[] = {
-		{2, {'f', 'o'}, {'f', 'o'}, 2, 0},
-		{6, {'f', 'o'}, {}, 3, 3},
-		{4, {'f', 'o', 'o', 'b', 'a', 'r'}, {'f', 'o', 'o', 'b'}, 6, 2}};
+	} tests[] = {{"foobarfoobarfoobar", 10, 6, 1, 6}, {"fo", 0, 2, 1, 2}, {"foobar", 0, 4, 2, 6}};
 
 	for (unsigned i = 0; i < sizeof(tests) / sizeof(tests[0]); ++i) {
-		// TODO
+		auto path = mTempDir + "/foo" + std::to_string(i);
+		StringFileReader reader(tests[i].input);
+
+		// create writer
+		auto f = mender::io::Open(path, true, true);
+		ASSERT_TRUE(f) << f.error().message;
+		mender::io::File fd = f.value();
+		mender::io::FileWriter writer(fd);
+
+		// create read-writer
+		mender::io::FileReadWriterSeeker readWriter(writer);
+
+		// create optimized-writer
+		mender::OptimizedWriter optWriter(
+			reader, readWriter, tests[i].blockSize, tests[i].inputSize);
+		optWriter.Copy();
+
+		auto stats = optWriter.GetStatistics();
+		ASSERT_EQ(stats.mBlocksWritten, tests[i].expectedBlockWritten);
+		ASSERT_EQ(stats.mBlocksOmitted, 0);
+		ASSERT_EQ(stats.mBytesWritten, tests[i].expectedBytesWritten);
+
+		auto err = mender::io::Close(fd);
+		ASSERT_EQ(err, NoError);
 	}
 }
 
